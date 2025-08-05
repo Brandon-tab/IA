@@ -10,7 +10,7 @@
       <input type="file" accept="image/*" capture="environment" @change="handleFrontImage" ref="frontInput" />
       <button class="camera-button" @click="triggerFrontCamera" @touchstart="handleTouchStart" @touchend="handleTouchEnd">📷 拍摄正面照片</button>
       <div class="image-preview" v-if="frontImage">
-        <img :src="frontImage" alt="正面照片" />
+        <img :src="frontImage" alt="正面照片" @click="previewImage(frontImage)" />
         <button @click="clearFrontImage" class="clear-button">🗑️ 清除</button>
       </div>
     </div>
@@ -20,7 +20,7 @@
       <input type="file" accept="image/*" capture="environment" @change="handleBackImage" ref="backInput" />
       <button class="camera-button" @click="triggerBackCamera" @touchstart="handleTouchStart" @touchend="handleTouchEnd">📷 拍摄反面照片</button>
       <div class="image-preview" v-if="backImage">
-        <img :src="backImage" alt="反面照片" />
+        <img :src="backImage" alt="反面照片" @click="previewImage(backImage)" />
         <button @click="clearBackImage" class="clear-button">🗑️ 清除</button>
       </div>
     </div>
@@ -57,6 +57,8 @@
 
 <script setup>
 import { ref } from 'vue'
+import { apiRequest } from '../utils/api.js'
+import { showImagePreview } from 'vant'
 
 // 图片数据
 const frontImage = ref('')
@@ -152,6 +154,15 @@ function clearBackImage() {
   }
 }
 
+// 预览图片
+function previewImage(imageUrl) {
+  showImagePreview({
+    images: [imageUrl],
+    closeable: true,
+    startPosition: 0
+  });
+}
+
 // 保存图片
 async function saveImages() {
   if (!frontImage.value || !backImage.value) {
@@ -167,6 +178,7 @@ async function saveImages() {
 
     // 创建FormData对象
     const formData = new FormData()
+    // 注意：这里仍然使用原生fetch，因为我们需要从data URL获取blob，而不是向API发送请求
     const frontBlob = await fetch(frontImage.value).then(res => res.blob())
     const backBlob = await fetch(backImage.value).then(res => res.blob())
     
@@ -174,7 +186,7 @@ async function saveImages() {
     formData.append('back_image', backBlob, 'back.jpg')
 
     // 发送请求
-    const response = await fetch('/api/upload-images/', {
+    const response = await apiRequest('/upload-images/', {
       method: 'POST',
       body: formData,
       // 移动端优化：设置超时

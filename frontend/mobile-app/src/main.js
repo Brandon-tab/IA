@@ -6,9 +6,14 @@ import router from './router'
 
 import './assets/main.css'
 
+// 引入 Vant 组件库
+import Vant from 'vant'
+import 'vant/lib/index.css'
+
 const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
+app.use(Vant)
 
 app.mount('#app')
