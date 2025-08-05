@@ -189,7 +189,7 @@ async function saveImages() {
     const response = await apiRequest('/upload-images/', {
       method: 'POST',
       body: formData
-    }, 30000) // 30秒超时
+    }, 120000) // 120秒超时
 
     const result = await response.json()
     

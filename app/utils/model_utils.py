@@ -6,6 +6,8 @@ from typing import Dict, Any, Optional
 import dashscope
 from dashscope import MultiModalConversation
 from dotenv import load_dotenv
+from PIL import Image
+import io
 
 # 加载.env文件中的环境变量
 load_dotenv()
@@ -21,7 +23,7 @@ if not dashscope.api_key:
 # 重试机制配置
 MAX_RETRIES = 3
 BACKOFF_FACTOR = 1
-TIMEOUT = 30  # 超时时间（秒）
+TIMEOUT = 120  # 超时时间（秒）
 
 
 def analyze_image_with_qwen(image_path: str) -> Optional[Dict[str, Any]]:
@@ -35,9 +37,24 @@ def analyze_image_with_qwen(image_path: str) -> Optional[Dict[str, Any]]:
         包含商品信息的字典，包括品牌、名称、价格和条形码
     """
     try:
-        # 读取图片并转换为base64编码
-        with open(image_path, "rb") as image_file:
-            encoded_image = base64.b64encode(image_file.read()).decode('utf-8')
+        # 读取并压缩图片
+        with Image.open(image_path) as img:
+            # 压缩图片到最大边长为1024像素
+            max_size = 1024
+            width, height = img.size
+            if width > max_size or height > max_size:
+                if width > height:
+                    new_width = max_size
+                    new_height = int(height * max_size / width)
+                else:
+                    new_height = max_size
+                    new_width = int(width * max_size / height)
+                img = img.resize((new_width, new_height), Image.LANCZOS)
+            
+            # 将压缩后的图片转换为base64编码
+            buffered = io.BytesIO()
+            img.save(buffered, format="JPEG")
+            encoded_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
         
         # 构造请求内容
         messages = [
@@ -73,8 +90,15 @@ def analyze_image_with_qwen(image_path: str) -> Optional[Dict[str, Any]]:
         
         # 检查响应状态
         if resp.status_code == 200:
-            output_text = resp.output.choices[0].message.content
-            print(f"API调用成功，响应内容: {output_text}")
+            # 处理响应数据结构
+            response_content = resp.output.choices[0].message.content
+            print(f"API调用成功，响应内容: {response_content}")
+            
+            # 如果响应内容是列表，提取第一个元素的text字段
+            if isinstance(response_content, list) and len(response_content) > 0:
+                output_text = response_content[0].get('text', '')
+            else:
+                output_text = response_content
         else:
             print(f"API调用失败，状态码: {resp.status_code}")
             print(f"错误信息: {resp.message}")
@@ -83,7 +107,13 @@ def analyze_image_with_qwen(image_path: str) -> Optional[Dict[str, Any]]:
         
         # 尝试解析JSON
         try:
-            # 提取JSON部分
+            # 提取JSON部分，处理可能的代码块标记
+            json_match = re.search(r'```json\s*(\{.*?\})\s*```', output_text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+                return json.loads(json_str)
+            
+            # 如果没有代码块标记，尝试直接提取JSON
             json_match = re.search(r'\{.*\}', output_text, re.DOTALL)
             if json_match:
                 json_str = json_match.group()
