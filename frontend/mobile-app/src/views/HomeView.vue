@@ -188,10 +188,8 @@ async function saveImages() {
     // 发送请求
     const response = await apiRequest('/upload-images/', {
       method: 'POST',
-      body: formData,
-      // 移动端优化：设置超时
-      signal: AbortSignal.timeout(30000) // 30秒超时
-    })
+      body: formData
+    }, 30000) // 30秒超时
 
     const result = await response.json()
     

@@ -15,6 +15,7 @@
 - SQLite
 - SQLAlchemy
 - Pillow (PIL)
+- DashScope (通义千问VL-Plus)
 
 ## 安装
 
@@ -23,6 +24,25 @@
 
 ```bash
 pip install -r requirements.txt
+```
+
+## 配置
+
+在使用图片分析功能之前，需要设置DashScope API密钥:
+
+### Windows (命令提示符)
+```cmd
+set DASHSCOPE_API_KEY=your_api_key_here
+```
+
+### Windows (PowerShell)
+```powershell
+$env:DASHSCOPE_API_KEY="your_api_key_here"
+```
+
+### macOS/Linux
+```bash
+export DASHSCOPE_API_KEY=your_api_key_here
 ```
 
 ## 运行
@@ -39,6 +59,9 @@ python main.py
   - 参数:
     - `front_image`: 正面图片文件
     - `back_image`: 反面图片文件
+  - 响应:
+    - `front_analysis`: 正面图片分析结果
+    - `back_analysis`: 反面图片分析结果
 
 ## 数据库
 

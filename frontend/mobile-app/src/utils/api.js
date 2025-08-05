@@ -16,9 +16,20 @@ export function buildApiUrl(path) {
  * 发送API请求
  * @param {string} path - API路径
  * @param {Object} options - fetch选项
+ * @param {number} timeout - 超时时间（毫秒）
  * @returns {Promise} fetch Promise
  */
-export async function apiRequest(path, options = {}) {
+export async function apiRequest(path, options = {}, timeout = 30000) {
   const url = buildApiUrl(path);
-  return await fetch(url, options);
+  
+  // 创建一个超时Promise
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('请求超时')), timeout);
+  });
+  
+  // 使用Promise.race实现超时控制
+  return await Promise.race([
+    fetch(url, options),
+    timeoutPromise
+  ]);
 }

@@ -2,6 +2,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import image_routes
 from app.database.database import engine, Base
+from dotenv import load_dotenv
+import os
+
+# 加载.env文件中的环境变量
+load_dotenv()
+
+# 调试信息：打印环境变量
+import os
+print(f"DASHSCOPE_API_KEY: {os.getenv('DASHSCOPE_API_KEY')}")
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
