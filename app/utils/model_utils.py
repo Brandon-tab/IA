@@ -21,9 +21,9 @@ if not dashscope.api_key:
 
 
 # 重试机制配置
-MAX_RETRIES = 3
-BACKOFF_FACTOR = 1
-TIMEOUT = 120  # 超时时间（秒）
+MAX_RETRIES = 5
+BACKOFF_FACTOR = 2
+TIMEOUT = 180  # 超时时间（秒）
 
 
 def analyze_image_with_qwen(image_path: str) -> Optional[Dict[str, Any]]:

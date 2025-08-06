@@ -7,18 +7,48 @@
 
     <div class="camera-section">
       <h2>正面照片</h2>
-      <input type="file" accept="image/*" capture="environment" @change="handleFrontImage" ref="frontInput" />
-      <button class="camera-button" @click="triggerFrontCamera" @touchstart="handleTouchStart" @touchend="handleTouchEnd">📷 拍摄正面照片</button>
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        @change="handleFrontImage"
+        ref="frontInput"
+      />
+      <button
+        class="camera-button"
+        @click="triggerFrontCamera"
+        @touchstart="handleTouchStart"
+        @touchend="handleTouchEnd"
+      >
+        📷 拍摄正面照片
+      </button>
       <div class="image-preview" v-if="frontImage">
-        <img :src="frontImage" alt="正面照片" @click="previewImage(frontImage)" />
+        <img
+          :src="frontImage"
+          alt="正面照片"
+          @click="previewImage(frontImage)"
+        />
         <button @click="clearFrontImage" class="clear-button">🗑️ 清除</button>
       </div>
     </div>
 
     <div class="camera-section">
       <h2>反面照片</h2>
-      <input type="file" accept="image/*" capture="environment" @change="handleBackImage" ref="backInput" />
-      <button class="camera-button" @click="triggerBackCamera" @touchstart="handleTouchStart" @touchend="handleTouchEnd">📷 拍摄反面照片</button>
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        @change="handleBackImage"
+        ref="backInput"
+      />
+      <button
+        class="camera-button"
+        @click="triggerBackCamera"
+        @touchstart="handleTouchStart"
+        @touchend="handleTouchEnd"
+      >
+        📷 拍摄反面照片
+      </button>
       <div class="image-preview" v-if="backImage">
         <img :src="backImage" alt="反面照片" @click="previewImage(backImage)" />
         <button @click="clearBackImage" class="clear-button">🗑️ 清除</button>
@@ -29,7 +59,11 @@
       <p>{{ uploadStatus }}</p>
     </div>
 
-    <button class="save-button" @click="saveImages" :disabled="!frontImage || !backImage">
+    <button
+      class="save-button"
+      @click="saveImages"
+      :disabled="!frontImage || !backImage"
+    >
       保存照片
     </button>
 
@@ -51,106 +85,109 @@
         </div>
       </div>
     </div>
-
   </main>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { apiRequest } from '../utils/api.js'
-import { showImagePreview } from 'vant'
+import { ref } from "vue";
+import { apiRequest } from "../utils/api.js";
+import { showImagePreview, showLoadingToast, closeToast } from "vant";
+import { useRouter } from "vue-router";
 
 // 图片数据
-const frontImage = ref('')
-const backImage = ref('')
+const frontImage = ref("");
+const backImage = ref("");
 
 // 上传状态
-const uploadStatus = ref('')
+const uploadStatus = ref("");
 
 // 调试状态
 const debugState = ref({
   show: false,
-  status: '',
-  message: '',
-  error: ''
-})
+  status: "",
+  message: "",
+  error: "",
+});
 
 // 切换调试面板
 function toggleDebugPanel() {
-  debugState.value.show = !debugState.value.show
+  debugState.value.show = !debugState.value.show;
   // 在移动设备上，如果打开调试面板，滚动到顶部
   if (debugState.value.show) {
     setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }, 100);
   }
 }
 
+// 路由实例
+const router = useRouter();
+
 // 前端输入引用
-const frontInput = ref(null)
-const backInput = ref(null)
+const frontInput = ref(null);
+const backInput = ref(null);
 
 // 触发正面摄像头
 function triggerFrontCamera() {
   if (frontInput.value) {
-    frontInput.value.click()
+    frontInput.value.click();
   }
 }
 
 // 触发反面摄像头
 function triggerBackCamera() {
   if (backInput.value) {
-    backInput.value.click()
+    backInput.value.click();
   }
 }
 
 // 处理触摸开始事件
 function handleTouchStart(event) {
-  event.target.classList.add('touch-active')
+  event.target.classList.add("touch-active");
 }
 
 // 处理触摸结束事件
 function handleTouchEnd(event) {
-  event.target.classList.remove('touch-active')
+  event.target.classList.remove("touch-active");
 }
 
 // 处理正面图片
 function handleFrontImage(event) {
-  const file = event.target.files[0]
+  const file = event.target.files[0];
   if (file) {
-    const reader = new FileReader()
+    const reader = new FileReader();
     reader.onload = (e) => {
-      frontImage.value = e.target.result
-    }
-    reader.readAsDataURL(file)
+      frontImage.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 }
 
 // 处理反面图片
 function handleBackImage(event) {
-  const file = event.target.files[0]
+  const file = event.target.files[0];
   if (file) {
-    const reader = new FileReader()
+    const reader = new FileReader();
     reader.onload = (e) => {
-      backImage.value = e.target.result
-    }
-    reader.readAsDataURL(file)
+      backImage.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 }
 
 // 清除正面图片
 function clearFrontImage() {
-  frontImage.value = ''
+  frontImage.value = "";
   if (frontInput.value) {
-    frontInput.value.value = ''
+    frontInput.value.value = "";
   }
 }
 
 // 清除反面图片
 function clearBackImage() {
-  backImage.value = ''
+  backImage.value = "";
   if (backInput.value) {
-    backInput.value.value = ''
+    backInput.value.value = "";
   }
 }
 
@@ -159,57 +196,78 @@ function previewImage(imageUrl) {
   showImagePreview({
     images: [imageUrl],
     closeable: true,
-    startPosition: 0
+    startPosition: 0,
   });
 }
 
 // 保存图片
 async function saveImages() {
   if (!frontImage.value || !backImage.value) {
-    uploadStatus.value = '请先拍摄正面和反面照片'
-    return
+    uploadStatus.value = "请先拍摄正面和反面照片";
+    return;
   }
 
   try {
+    // 显示loading
+    showLoadingToast({
+      message: "上传中...",
+      forbidClick: true,
+      duration: 0, // 持续显示直到手动关闭
+    });
+
     // 更新调试状态
-    debugState.value.status = '上传中'
-    debugState.value.message = '正在准备上传...'
-    debugState.value.error = ''
+    debugState.value.status = "上传中";
+    debugState.value.message = "正在准备上传...";
+    debugState.value.error = "";
 
     // 创建FormData对象
-    const formData = new FormData()
+    const formData = new FormData();
     // 注意：这里仍然使用原生fetch，因为我们需要从data URL获取blob，而不是向API发送请求
-    const frontBlob = await fetch(frontImage.value).then(res => res.blob())
-    const backBlob = await fetch(backImage.value).then(res => res.blob())
-    
-    formData.append('front_image', frontBlob, 'front.jpg')
-    formData.append('back_image', backBlob, 'back.jpg')
+    const frontBlob = await fetch(frontImage.value).then((res) => res.blob());
+    const backBlob = await fetch(backImage.value).then((res) => res.blob());
+
+    formData.append("front_image", frontBlob, "front.jpg");
+    formData.append("back_image", backBlob, "back.jpg");
 
     // 发送请求
-    const response = await apiRequest('/upload-images/', {
-      method: 'POST',
-      body: formData
-    }, 120000) // 120秒超时
+    const result = await apiRequest(
+      "/upload-images/",
+      {
+        method: "POST",
+        body: formData,
+      },
+      120000
+    ); // 2分钟超时
 
-    const result = await response.json()
-    
-    if (response.ok) {
-      uploadStatus.value = '上传成功!'
-      debugState.value.status = '成功'
-      debugState.value.message = `图片已保存，ID: ${result.id}`
-      
-      // 清除图片
-      clearFrontImage()
-      clearBackImage()
-    } else {
-      throw new Error(result.error || '上传失败')
-    }
+    // 由于api.js已经处理了响应格式，这里直接使用result
+    uploadStatus.value = "上传成功!";
+    debugState.value.status = "成功";
+    debugState.value.message = `图片已保存，ID: ${result.id}`;
+
+    // 清除图片
+    clearFrontImage();
+    clearBackImage();
+    let db_image = result.merged_result;
+    router.push({
+      path: "/productDetails",
+      query: {
+        brand: db_image.brand,
+        name: db_image.name,
+        price: db_image.price,
+        barcode: db_image.barcode,
+        front_image_path: db_image.front_image_path,
+        back_image_pathon:db_image.back_image_pathon
+      },
+    });
   } catch (error) {
-    uploadStatus.value = '上传失败，请重试'
-    debugState.value.status = '错误'
-    debugState.value.message = '上传过程中发生错误'
-    debugState.value.error = error.message
-    console.error('上传错误:', error)
+    uploadStatus.value = "上传失败，请重试";
+    debugState.value.status = "错误";
+    debugState.value.message = "上传过程中发生错误";
+    debugState.value.error = error.message || error.toString();
+    console.error("上传错误:", error);
+  } finally {
+    // 无论成功或失败都关闭loading
+    closeToast();
   }
 }
 </script>
@@ -226,38 +284,38 @@ async function saveImages() {
   .home {
     padding: 15px;
   }
-  
+
   .header h1 {
     font-size: 24px;
   }
-  
+
   .subtitle {
     font-size: 14px;
   }
-  
+
   .camera-section {
     padding: 15px;
   }
-  
+
   .camera-section h2 {
     font-size: 18px;
   }
-  
+
   .camera-button {
     padding: 18px;
     font-size: 18px;
   }
-  
+
   .save-button {
     padding: 18px;
     font-size: 20px;
   }
-  
+
   .debug-panel {
     width: 90%;
     right: 5%;
   }
-  
+
   .debug-toggle {
     padding: 12px 20px;
     font-size: 16px;
@@ -309,7 +367,7 @@ async function saveImages() {
   border-radius: 8px;
   cursor: pointer;
   margin: 10px 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .camera-button:hover,
@@ -329,7 +387,7 @@ async function saveImages() {
   height: auto;
   border: 1px solid #ddd;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .clear-button {
@@ -392,7 +450,7 @@ async function saveImages() {
   background-color: #fff;
   border: 2px solid #42b983;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 1000;
 }
 
@@ -458,7 +516,7 @@ async function saveImages() {
   color: white;
   border: none;
   border-radius: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   z-index: 999;
 }

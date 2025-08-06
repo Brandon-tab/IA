@@ -19,7 +19,7 @@ export function buildApiUrl(path) {
  * @param {number} timeout - 超时时间（毫秒）
  * @returns {Promise} fetch Promise
  */
-export async function apiRequest(path, options = {}, timeout = 30000) {
+export async function apiRequest(path, options = {}, timeout = 1200000) {
   const url = buildApiUrl(path);
   
   // 创建一个超时Promise
@@ -28,8 +28,32 @@ export async function apiRequest(path, options = {}, timeout = 30000) {
   });
   
   // 使用Promise.race实现超时控制
-  return await Promise.race([
+  const response = await Promise.race([
     fetch(url, options),
     timeoutPromise
   ]);
+  
+  // 克隆响应以供后续使用
+  const clonedResponse = response.clone();
+  
+  try {
+    // 尝试解析JSON响应
+    const data = await response.json();
+    
+    // 检查响应是否成功
+    if (data.code === 200) {
+      // 直接返回data字段，而不是创建新的Response对象
+      return data.data;
+    } else {
+      // 如果code不为200，则抛出错误
+      throw new Error(data.message || '请求失败');
+    }
+  } catch (error) {
+    // 如果解析JSON失败，则返回原始响应
+    if (error instanceof SyntaxError) {
+      return clonedResponse;
+    }
+    // 如果是其他错误，则重新抛出
+    throw error;
+  }
 }

@@ -32,10 +32,10 @@
         <label>操作类型:</label>
         <div class="radio-group">
           <label>
-            <input v-model="operationType" type="radio" value="in" /> 入库
+            <input v-model="operationType" type="radio" value="1" /> 入库
           </label>
           <label>
-            <input v-model="operationType" type="radio" value="out" /> 出库
+            <input v-model="operationType" type="radio" value="0" /> 出库
           </label>
         </div>
       </div>
@@ -46,26 +46,72 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+
+// 获取路由实例
+const route = useRoute()
 
 // 产品数据
 const product = ref({
+  id: null,
+  front_image_path: '',
+  back_image_path: '',
   brand: '',
   name: '',
-  quantity: 0,
+  quantity: 1,
   price: 0.00,
-  barcode: '1234567890123' // 示例条形码
+  barcode: ''
+})
+
+// 在组件挂载时从查询参数中获取值
+onMounted(() => {
+  if (route.query.id) product.value.id = route.query.id
+  if (route.query.front_image_path) product.value.front_image_path = route.query.front_image_path
+  if (route.query.back_image_path) product.value.back_image_path = route.query.back_image_path
+  if (route.query.brand) product.value.brand = route.query.brand
+  if (route.query.name) product.value.name = route.query.name
+  if (route.query.price) product.value.price = route.query.price
+  if (route.query.barcode) product.value.barcode = route.query.barcode
 })
 
 // 操作类型 (入库/出库)
-const operationType = ref('in') // 默认为入库
+const operationType = ref('1') // 默认为入库
 
 // 保存产品信息
 function saveProduct() {
   console.log('保存产品信息:', product.value)
   console.log('操作类型:', operationType.value)
-  // 这里可以添加保存到服务器的逻辑
-  alert(`产品信息已保存!\n操作类型: ${operationType.value === 'in' ? '入库' : '出库'}\n产品: ${product.value.name}`)
+  
+  // 构造请求参数
+  const requestData = {
+    front_image_path: product.value.front_image_path,
+    back_image_path: product.value.back_image_path,
+    brand: product.value.brand,
+    name: product.value.name,
+    price: product.value.price,
+    barcode: product.value.barcode,
+    quantity: product.value.quantity,
+    operationType: operationType.value
+  };
+  
+  // 发送请求到后端
+  fetch(`http://localhost:8001/update-image`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(requestData)
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log('Success:', data);
+    alert(`产品信息已保存!\n操作类型: ${operationType.value === '1' ? '入库' : '出库'}\n产品: ${product.value.name}`);
+  })
+  .catch((error) => {
+    console.error('Error:', error);
+    alert('保存失败，请查看控制台错误信息');
+  });
 }
 </script>
 

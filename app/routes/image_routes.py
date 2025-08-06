@@ -1,10 +1,14 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from app.database.database import get_db
 from app.models.image import Image
 from app.utils.image_utils import save_image, validate_image
 from app.utils.model_utils import analyze_image_with_qwen
+from app.utils.response_utils import success_response, error_response
 import logging
+from pydantic import BaseModel, validator
+from typing import Optional
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -18,65 +22,193 @@ async def upload_images(
     back_image: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    logger.info("开始处理图片上传请求")
-    
-    # 保存图片
-    logger.info("开始保存图片")
-    front_path = save_image(front_image, "front")
-    back_path = save_image(back_image, "back")
-    logger.info(f"图片保存完成，正面图片路径: {front_path}, 背面图片路径: {back_path}")
-    
-    # 分析图片
-    logger.info("开始分析正面图片")
-    front_analysis = analyze_image_with_qwen(front_path)
-    logger.info("开始分析背面图片")
-    back_analysis = analyze_image_with_qwen(back_path)
-    logger.info("图片分析完成")
-    
-    # 保存到数据库
-    logger.info("开始保存到数据库")
-    db_image = Image(front_image_path=front_path, back_image_path=back_path)
-    db.add(db_image)
-    db.commit()
-    # 合并分析结果
-    logger.info("开始合并分析结果")
-    merged_result = {
-        "brand": front_analysis.get("brand", "N/A") if front_analysis else "N/A",
-        "name": front_analysis.get("name", "N/A") if front_analysis else "N/A",
-        "price": front_analysis.get("price", 0) if front_analysis and front_analysis.get("price") != "N/A" else (back_analysis.get("price", 0) if back_analysis and back_analysis.get("price") != "N/A" else 0),
-        "barcode": back_analysis.get("barcode", "N/A") if back_analysis else "N/A"
-    }
-    # 确保price字段为数字类型
-    if merged_result["price"] == "N/A" or merged_result["price"] == "":
-        merged_result["price"] = 0
-    else:
-        try:
-            merged_result["price"] = float(merged_result["price"])
-        except ValueError:
-            merged_result["price"] = 0
-    logger.info(f"合并结果: {merged_result}")
-    
-    # 更新数据库记录
-    logger.info("开始更新数据库记录")
-    db_image.brand = merged_result["brand"]
-    db_image.name = merged_result["name"]
-    db_image.price = merged_result["price"]
-    db_image.barcode = merged_result["barcode"]
-    db.commit()
-    db.refresh(db_image)
-    logger.info(f"数据库更新完成，记录ID: {db_image.id}")
-    
-    result = {
-        "message": "Images uploaded successfully",
-        "id": db_image.id,
-        "front_analysis": front_analysis,
-        "back_analysis": back_analysis,
-        "merged_result": merged_result
-    }
-    logger.info("请求处理完成")
-    return result
+    try:
+        logger.info("开始处理图片上传请求")
+        
+        # 保存图片
+        logger.info("开始保存图片")
+        front_path = save_image(front_image, "front")
+        back_path = save_image(back_image, "back")
+        logger.info(f"图片保存完成，正面图片路径: {front_path}, 背面图片路径: {back_path}")
+        
+        # 分析图片
+        logger.info("开始分析正面图片")
+        front_analysis = analyze_image_with_qwen(front_path)
+        logger.info("开始分析背面图片")
+        back_analysis = analyze_image_with_qwen(back_path)
+        logger.info("图片分析完成")
+        
+        # 合并分析结果
+        logger.info("开始合并分析结果")
+        # 先从正面图片获取价格
+        front_price = front_analysis.get("price", 0) if front_analysis else 0
+        # 如果正面图片价格无效，尝试从背面图片获取
+        back_price = back_analysis.get("price", 0) if back_analysis else 0
+        
+        # 确定最终价格
+        final_price = 0
+        if front_price and front_price != "N/A" and front_price != "":
+            try:
+                final_price = float(front_price)
+            except ValueError:
+                # 如果正面图片价格无效，尝试使用背面图片价格
+                if back_price and back_price != "N/A" and back_price != "":
+                    try:
+                        final_price = float(back_price)
+                    except ValueError:
+                        final_price = 0
+                else:
+                    final_price = 0
+        else:
+            # 正面图片价格无效，尝试使用背面图片价格
+            if back_price and back_price != "N/A" and back_price != "":
+                try:
+                    final_price = float(back_price)
+                except ValueError:
+                    final_price = 0
+            else:
+                final_price = 0
+        
+        merged_result = {
+            "brand": front_analysis.get("brand", "N/A") if front_analysis else "N/A",
+            "name": front_analysis.get("name", "N/A") if front_analysis else "N/A",
+            "price": final_price,
+            "barcode": back_analysis.get("barcode", "N/A") if back_analysis else "N/A"
+        }
+        logger.info(f"合并结果: {merged_result}")
+        
+        # 创建数据库记录
+        db_image = Image(
+            front_image_path=front_path,
+            back_image_path=back_path,
+            brand=merged_result["brand"],
+            name=merged_result["name"],
+            price=merged_result["price"],
+            barcode=merged_result["barcode"],
+            number="0"  # 初始数量为0
+        )
+        
+        # 保存到数据库
+        db.add(db_image)
+        db.commit()
+        db.refresh(db_image)
+        
+        result = {
+            "id": db_image.id,
+            "front_image_path": front_path,
+            "back_image_path": back_path,
+            "front_analysis": front_analysis,
+            "back_analysis": back_analysis,
+            "merged_result": merged_result
+        }
+        logger.info("请求处理完成")
+        return success_response(result, "Images uploaded successfully")
+    except FileNotFoundError as e:
+        logger.error(f"文件未找到错误: {e}")
+        return error_response(404, f"文件未找到: {str(e)}")
+    except SQLAlchemyError as e:
+        logger.error(f"数据库错误: {e}")
+        return error_response(500, f"数据库操作失败: {str(e)}")
+    except Exception as e:
+        logger.error(f"处理图片上传时发生未知错误: {e}")
+        return error_response(500, f"处理图片上传时发生错误: {str(e)}")
 
 @router.options("/upload-images/")
 async def options_upload_images():
     # 这个函数只用于处理OPTIONS请求，返回200状态码
     return {"status": "OK"}
+
+# 定义更新图像信息的请求模型
+class ImageUpdateRequest(BaseModel):
+    front_image_path: Optional[str] = None
+    back_image_path: Optional[str] = None
+    brand: Optional[str] = None
+    name: Optional[str] = None
+    price: Optional[float] = None
+    barcode: Optional[str] = None
+    quantity: Optional[int] = None
+    operationType: Optional[str] = None
+    
+    @validator('price', pre=True)
+    def validate_price(cls, v):
+        if v is None:
+            return 0.0
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except ValueError:
+                return 0.0
+        return float(v)
+    
+    @validator('quantity', pre=True)
+    def validate_quantity(cls, v):
+        if v is None:
+            return 0
+        if isinstance(v, str):
+            try:
+                return int(v)
+            except ValueError:
+                return 0
+        return int(v)
+
+@router.post("/update-image")
+async def update_image_info(
+    request: ImageUpdateRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        # 根据barcode更新或新增数据
+        logger.info(f"开始根据barcode更新或新增数据: {request.barcode}")
+        
+        # 查找是否已存在该barcode的记录
+        existing_image = db.query(Image).filter(Image.barcode == request.barcode).first()
+        
+        if existing_image:
+            # 如果存在，则根据operationType更新number字段和price字段
+            logger.info(f"找到已存在的记录，ID: {existing_image.id}，更新number和price字段")
+            if request.quantity is not None:
+                if request.operationType == "1":
+                    # 增加数量
+                    current_number = int(existing_image.number) if existing_image.number else 0
+                    existing_image.number = str(current_number + request.quantity)
+                else:
+                    # 直接设置数量
+                    existing_image.number = str(request.quantity)
+            
+            # 更新price字段
+            if request.price is not None:
+                existing_image.price = request.price
+            
+            db.commit()
+            db.refresh(existing_image)
+            logger.info(f"数据库更新完成，记录ID: {existing_image.id}")
+            return success_response(existing_image, "图像信息更新成功")
+        else:
+            # 如果不存在，则新增一条数据
+            logger.info("未找到已存在的记录，新增一条数据")
+            new_image = Image(
+                front_image_path=request.front_image_path if request.front_image_path is not None else "",
+                back_image_path=request.back_image_path if request.back_image_path is not None else "",
+                brand=request.brand if request.brand is not None else "",
+                name=request.name if request.name is not None else "",
+                price=request.price if request.price is not None else 0,
+                barcode=request.barcode if request.barcode is not None else "",
+                number=str(request.quantity) if request.quantity is not None else "0"
+            )
+            db.add(new_image)
+            db.commit()
+            db.refresh(new_image)
+            logger.info(f"数据库新增完成，记录ID: {new_image.id}")
+            return success_response(new_image, "新图像信息创建成功")
+    except FileNotFoundError as e:
+        logger.error(f"文件未找到错误: {e}")
+        db.rollback()
+        return error_response(404, f"文件未找到: {str(e)}")
+    except SQLAlchemyError as e:
+        logger.error(f"数据库错误: {e}")
+        db.rollback()
+        return error_response(500, f"数据库操作失败: {str(e)}")
+    except Exception as e:
+        logger.error(f"更新图像信息时发生未知错误: {e}")
+        db.rollback()
+        return error_response(500, f"更新图像信息时发生错误: {str(e)}")

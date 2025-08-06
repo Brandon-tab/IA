@@ -51,7 +51,11 @@ export DASHSCOPE_API_KEY=your_api_key_here
 python main.py
 ```
 
-服务器将在 `http://localhost:8000` 上运行
+服务器将在 `http://localhost:8001` 上运行
+
+## 超时设置
+
+后端接口默认设置为2分钟超时时间，以确保有足够的时间处理图片上传和分析。
 
 ## API Endpoints
 

@@ -10,7 +10,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',  // 后端地址
+        target: 'http://localhost:8001',  // 后端地址
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },

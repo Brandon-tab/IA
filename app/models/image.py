@@ -12,5 +12,6 @@ class Image(Base):
     name = Column(String, nullable=True)
     price = Column(Float, nullable=True)
     barcode = Column(String, nullable=True)
+    number = Column(String, nullable=True)  # 新增的number字段
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
