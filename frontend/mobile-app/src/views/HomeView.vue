@@ -255,8 +255,8 @@ async function saveImages() {
         name: db_image.name,
         price: db_image.price,
         barcode: db_image.barcode,
-        front_image_path: db_image.front_image_path,
-        back_image_pathon:db_image.back_image_pathon
+        front_image_path: result.front_image_path,
+        back_image_path: result.back_image_path
       },
     });
   } catch (error) {

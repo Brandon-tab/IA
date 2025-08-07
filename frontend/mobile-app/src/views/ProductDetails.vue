@@ -48,6 +48,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { showSuccessToast, showFailToast } from 'vant'
+import { apiRequest } from '../utils/api'
 
 // 获取路由实例
 const route = useRoute()
@@ -79,7 +81,7 @@ onMounted(() => {
 const operationType = ref('1') // 默认为入库
 
 // 保存产品信息
-function saveProduct() {
+async function saveProduct() {
   console.log('保存产品信息:', product.value)
   console.log('操作类型:', operationType.value)
   
@@ -96,22 +98,21 @@ function saveProduct() {
   };
   
   // 发送请求到后端
-  fetch(`http://localhost:8001/update-image`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(requestData)
-  })
-  .then(response => response.json())
-  .then(data => {
-    console.log('Success:', data);
-    alert(`产品信息已保存!\n操作类型: ${operationType.value === '1' ? '入库' : '出库'}\n产品: ${product.value.name}`);
-  })
-  .catch((error) => {
+  try {
+    const result = await apiRequest('/update-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
+    });
+    
+    console.log('Success:', result);
+    showSuccessToast(`产品信息已保存!\n操作类型: ${operationType.value === '1' ? '入库' : '出库'}\n产品: ${product.value.name}`);
+  } catch (error) {
     console.error('Error:', error);
-    alert('保存失败，请查看控制台错误信息');
-  });
+    showFailToast('保存失败，请查看控制台错误信息');
+  }
 }
 </script>
 

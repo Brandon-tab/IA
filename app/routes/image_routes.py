@@ -76,25 +76,9 @@ async def upload_images(
             "barcode": back_analysis.get("barcode", "N/A") if back_analysis else "N/A"
         }
         logger.info(f"合并结果: {merged_result}")
-        
-        # 创建数据库记录
-        db_image = Image(
-            front_image_path=front_path,
-            back_image_path=back_path,
-            brand=merged_result["brand"],
-            name=merged_result["name"],
-            price=merged_result["price"],
-            barcode=merged_result["barcode"],
-            number="0"  # 初始数量为0
-        )
-        
-        # 保存到数据库
-        db.add(db_image)
-        db.commit()
-        db.refresh(db_image)
-        
+           
         result = {
-            "id": db_image.id,
+            # "id": db_image.id,
             "front_image_path": front_path,
             "back_image_path": back_path,
             "front_analysis": front_analysis,
