@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from app.database.database import get_db
@@ -8,7 +8,10 @@ from app.utils.model_utils import analyze_image_with_qwen
 from app.utils.response_utils import success_response, error_response
 import logging
 from pydantic import BaseModel, validator
-from typing import Optional
+from typing import Optional, List
+import pandas as pd
+from fastapi.responses import StreamingResponse
+import io
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -101,6 +104,47 @@ async def upload_images(
 async def options_upload_images():
     # 这个函数只用于处理OPTIONS请求，返回200状态码
     return {"status": "OK"}
+
+
+# 查询Image表（支持分页）
+@router.post("/images/")
+async def get_all_images(
+    page: int = Query(1, ge=1, description="页码，默认为1"),
+    page_size: int = Query(10, ge=1, le=100, description="每页数据量，默认为10，最大为100"),
+    db: Session = Depends(get_db)
+):
+    try:
+        # 计算偏移量
+        offset = (page - 1) * page_size
+        
+        # 查询分页数据
+        images = db.query(Image).offset(offset).limit(page_size).all()
+        
+        # 获取总数据量
+        total = db.query(Image).count()
+        
+        # 计算总页数
+        total_pages = (total + page_size - 1) // page_size
+        
+        # 构造返回数据
+        result = {
+            "data": images,
+            "pagination": {
+                "current_page": page,
+                "page_size": page_size,
+                "total_pages": total_pages,
+                "total_items": total
+            }
+        }
+        
+        return success_response(result, "成功获取图像数据")
+    except SQLAlchemyError as e:
+        logger.error(f"数据库错误: {e}")
+        return error_response(500, f"数据库操作失败: {str(e)}")
+    except Exception as e:
+        logger.error(f"获取图像数据时发生未知错误: {e}")
+        return error_response(500, f"获取图像数据时发生错误: {str(e)}")
+
 
 # 定义更新图像信息的请求模型
 class ImageUpdateRequest(BaseModel):
@@ -196,3 +240,46 @@ async def update_image_info(
         logger.error(f"更新图像信息时发生未知错误: {e}")
         db.rollback()
         return error_response(500, f"更新图像信息时发生错误: {str(e)}")
+
+
+# 导出Image表为Excel文件
+@router.get("/export-images/")
+async def export_images_to_excel(db: Session = Depends(get_db)):
+    try:
+        # 查询所有图像数据
+        images = db.query(Image).all()
+        
+        # 将数据转换为字典列表
+        data = []
+        for image in images:
+            data.append({
+                "ID": image.id,
+                "正面图片路径": image.front_image_path,
+                "背面图片路径": image.back_image_path,
+                "品牌": image.brand,
+                "名称": image.name,
+                "价格": image.price,
+                "条形码": image.barcode,
+                "数量": image.number,
+                "创建时间": image.created_at,
+                "更新时间": image.updated_at
+            })
+        
+        # 创建DataFrame
+        df = pd.DataFrame(data)
+        
+        # 将DataFrame写入字节流
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Images')
+        output.seek(0)
+        
+        # 返回StreamingResponse
+        headers = {
+            'Content-Disposition': 'attachment; filename="images.xlsx"'
+        }
+        return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    
+    except Exception as e:
+        logger.error(f"导出Excel时发生未知错误: {e}")
+        return error_response(500, f"导出Excel时发生错误: {str(e)}")

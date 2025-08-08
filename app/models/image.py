@@ -1,6 +1,24 @@
 from sqlalchemy import Column, Integer, String, DateTime, Float
 from datetime import datetime
 from app.database.database import Base
+from pydantic import BaseModel
+
+
+class ImageBase(BaseModel):
+    id: int
+    front_image_path: str
+    back_image_path: str
+    brand: str = None
+    name: str = None
+    price: float = None
+    barcode: str = None
+    number: str = None
+    created_at: datetime = None
+    updated_at: datetime = None
+
+    class Config:
+        orm_mode = True
+
 
 class Image(Base):
     __tablename__ = "images"
